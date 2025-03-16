@@ -1,0 +1,11 @@
+fastapi==0.104.1
+uvicorn==0.24.0
+google-play-scraper==1.2.4
+requests==2.31.0
+python-dotenv==1.0.0
+pydantic==2.5.2
+emoji==2.8.0
+pytz==2023.3
+beautifulsoup4==4.12.2
+langdetect==1.0.9
+tqdm==4.66.1
