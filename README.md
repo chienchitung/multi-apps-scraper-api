@@ -1,6 +1,20 @@
-# MultiApps Reviews Scraper API
+# Multi-Apps Reviews Scraper API
 
-這是一個用於抓取 App Store 和 Google Play 應用程式評論的 API 服務。支援多個應用程式同時抓取，並提供統一的資料格式。
+多平台應用程式評論抓取 API 服務，支援同時抓取 App Store 和 Google Play 的應用程式評論。
+
+## 目錄
+
+- [功能特點](#功能特點)
+- [系統需求](#系統需求)
+- [快速開始](#快速開始)
+  - [使用 Docker Compose](#使用-docker-compose)
+  - [使用 Docker](#使用-docker)
+  - [使用 Python 虛擬環境](#使用-python-虛擬環境)
+- [API 文件](#api-文件)
+  - [抓取評論 API](#抓取評論-api)
+- [部署指南](#部署指南)
+- [開發指南](#開發指南)
+- [注意事項](#注意事項)
 
 ## 功能特點
 
@@ -17,33 +31,7 @@
 - Docker（選用）
 - Docker Compose（選用）
 
-## 安裝方式
-
-### 使用 Python 虛擬環境
-
-```bash
-# 建立虛擬環境
-python -m venv venv
-
-# 啟動虛擬環境
-# Windows
-venv\Scripts\activate
-# Linux/Mac
-source venv/bin/activate
-
-# 安裝依賴
-pip install -r requirements.txt
-```
-
-### 使用 Docker
-
-```bash
-# 建立映像檔
-docker build -t app-reviews-scraper .
-
-# 執行容器
-docker run -p 8000:8000 app-reviews-scraper
-```
+## 快速開始
 
 ### 使用 Docker Compose（推薦）
 
@@ -61,127 +49,160 @@ docker-compose down
 docker-compose up -d --build
 ```
 
-Docker Compose 配置特點：
-- 自動重啟功能
-- 健康檢查
-- 資源限制
-- 日誌輪替
-- 容器命名
-- 環境變數配置
+### 使用 Docker
 
-## API 使用說明
+```bash
+# 建立映像檔
+docker build -t app-reviews-scraper .
 
-### 評論抓取 API
+# 執行容器
+docker run -p 8000:8000 app-reviews-scraper
+```
 
-**端點：** `/scrape`
-**方法：** POST
+### 使用 Python 虛擬環境
+
+```bash
+# 建立虛擬環境
+python -m venv venv
+
+# 啟動虛擬環境
+# Windows
+venv\Scripts\activate
+# Linux/Mac
+source venv/bin/activate
+
+# 安裝依賴
+pip install -r requirements.txt
+
+# 啟動服務
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+## API 文件
+
+### 抓取評論 API
+
+**端點：** `/scrape`  
+**方法：** POST  
+**Content-Type：** application/json
 
 **請求格式：**
 ```json
 {
-    "appleStore": [
-        "https://apps.apple.com/tw/app/app-name/id1234567890",
-        "https://apps.apple.com/tw/app/another-app/id0987654321"
-    ],
-    "googlePlay": [
-        "https://play.google.com/store/apps/details?id=com.example.app",
-        "https://play.google.com/store/apps/details?id=com.example.another"
-    ]
+  "apple_store_urls": [
+    "https://apps.apple.com/tw/app/id123456789",
+    "https://apps.apple.com/tw/app/id987654321"
+  ],
+  "google_play_urls": [
+    "https://play.google.com/store/apps/details?id=com.example.app1",
+    "https://play.google.com/store/apps/details?id=com.example.app2"
+  ]
 }
+```
+
+**使用範例：**
+
+使用 curl：
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/scrape' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "appleStore": [
+        "https://apps.apple.com/tw/app/ikea%E5%8F%B0%E7%81%A3/id1631350301",
+        "https://apps.apple.com/tw/app/%E7%89%B9%E5%8A%9B%E5%B1%8B-%E8%87%AA%E7%B5%84%E6%A8%82%E8%B6%A3-%E8%87%AA%E9%80%A0%E7%BE%8E%E5%A5%BD/id1403339648",
+        "https://apps.apple.com/tw/app/nitori-%E5%AE%9C%E5%BE%97%E5%88%A9%E5%AE%B6%E5%B1%85-tw/id1595994449"
+  ],
+  "googlePlay": [
+        "https://play.google.com/store/apps/details?id=tw.com.nitori.points&hl=zh_TW",
+        "https://play.google.com/store/apps/details?id=tw.com.ikea.android&hl=zh_TW",
+        "https://play.google.com/store/apps/details?id=com.testritegroup.crm.loyaltyapp&hl=zh_TW"
+  ]
+}'
+```
+
+使用 Python requests：
+```python
+import requests
+import json
+
+url = "http://localhost:8000/scrape"
+data = {
+    "appleStore": ["https://apps.apple.com/tw/app/id123456789"],
+    "googlePlay": ["https://play.google.com/store/apps/details?id=com.example.app"]
+}
+
+response = requests.post(url, json=data)
+print(json.dumps(response.json(), indent=2, ensure_ascii=False))
 ```
 
 **回應格式：**
 ```json
 {
-    "success": true,
-    "data": {
-        "ios": {
-            "https://apps.apple.com/tw/app/app-name/id1234567890": [
-                {
-                    "date": "2024-03-20",
-                    "username": "使用者名稱",
-                    "review": "評論內容",
-                    "rating": 5,
-                    "platform": "iOS",
-                    "developerResponse": "開發者回覆",
-                    "language": "zh",
-                    "app_id": "1234567890"
-                }
-            ]
-        },
-        "android": {
-            "https://play.google.com/store/apps/details?id=com.example.app": [
-                {
-                    "date": "2024-03-20",
-                    "username": "使用者名稱",
-                    "review": "評論內容",
-                    "rating": 5,
-                    "platform": "Android",
-                    "developerResponse": "開發者回覆",
-                    "language": "zh",
-                    "app_id": "com.example.app"
-                }
-            ]
+  "results": [
+    {
+      "app_id": "123456789",
+      "platform": "ios",
+      "reviews": [
+        {
+          "review_id": "12345",
+          "rating": 5,
+          "title": "很棒的應用",
+          "content": "使用體驗非常好",
+          "author": "使用者名稱",
+          "date": "2024-03-16",
+          "developer_response": "感謝您的評論",
+          "developer_response_date": "2024-03-17"
         }
+      ]
     }
+  ]
 }
 ```
 
-## 本地開發
+## 部署指南
 
-1. 啟動開發伺服器：
+### Railway 部署
+
+1. Fork 此專案到您的 GitHub
+2. 在 Railway 中連接您的 GitHub 帳號
+3. 選擇此專案進行部署
+4. 環境變數設定：
+   - `PORT`: 設定服務埠口（預設 8000）
+
+### 其他平台部署
+
+支援任何可以運行 Docker 容器的平台，如：
+- Heroku
+- Google Cloud Run
+- AWS ECS
+
+## 開發指南
+
+1. Clone 專案：
+```bash
+git clone https://github.com/yourusername/multi-apps-scraper-api.git
+cd app-reviews-scraper
+```
+
+2. 安裝開發依賴：
+```bash
+pip install -r requirements.txt
+```
+
+3. 啟動開發伺服器：
 ```bash
 uvicorn main:app --reload
 ```
 
-2. 訪問 API 文件：
-```
-http://localhost:8000/docs
-```
-
-## 部署說明
-
-### Railway 部署
-
-1. 確保專案根目錄包含以下檔案：
-   - `railway.toml`
-   - `requirements.txt`
-   - `runtime.txt`
-   - `Dockerfile`
-
-2. 設定環境變數：
-   - `PORT`: 應用程式埠號（預設：8000）
-
-### 其他部署方式
-
-支援任何可以執行 Docker 容器或 Python 應用程式的平台，如：
-- Heroku
-- Google Cloud Run
-- AWS Elastic Beanstalk
-
 ## 注意事項
 
-1. 評論抓取限制：
-   - 每個應用程式最多抓取 100 筆評論
-   - iOS 和 Android 各 50 筆
-   - 評論按日期排序，只返回最新的評論
-
-2. 錯誤處理：
-   - API 會自動重試失敗的請求
-   - 提供詳細的錯誤訊息
-   - 單一應用程式失敗不影響其他應用程式的抓取
-
-3. 速率限制：
-   - 包含適當的請求延遲
-   - 自動處理 429 (Too Many Requests) 錯誤
-
-## 貢獻指南
-
-1. Fork 專案
-2. 建立功能分支
-3. 提交變更
-4. 發送 Pull Request
+- 評論抓取限制：每個應用程式最多抓取 100 筆評論（iOS 和 Android 各 50 筆）
+- 評論排序：依照日期從新到舊排序
+- 錯誤處理：API 會回傳適當的錯誤訊息和 HTTP 狀態碼
+- 建議使用：建議在正式環境中使用 Docker Compose 部署
 
 ## 授權
 
-MIT License 
+本專案採用 MIT 授權條款。 
