@@ -187,7 +187,7 @@ def fetch_ios_reviews(url: str) -> List[dict]:
         print("成功取得 token")
         all_reviews = []
         offset = '1'
-        REVIEWS_PER_APP = 50  # 每個應用程式抓取 50 筆 iOS 評論
+        REVIEWS_PER_APP = 5  # 每個應用程式抓取 50 筆 iOS 評論
         
         while offset and len(all_reviews) < REVIEWS_PER_APP:
             print(f"正在抓取評論，offset: {offset}")
@@ -247,7 +247,7 @@ def parse_android_url(url: str) -> str:
 
 def fetch_android_reviews(url: str) -> List[dict]:
     try:
-        REVIEWS_PER_APP = 50  # 每個應用程式抓取 50 筆 Android 評論
+        REVIEWS_PER_APP = 5  # 每個應用程式抓取 50 筆 Android 評論
         app_id = parse_android_url(url)  # 改用 app_id
         print(f"開始抓取 Android 評論，應用程式 ID: {app_id}")
         
