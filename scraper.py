@@ -187,7 +187,8 @@ def fetch_ios_reviews(url: str) -> List[dict]:
         print("成功取得 token")
         all_reviews = []
         offset = '1'
-        REVIEWS_PER_APP = 5  # 每個應用程式抓取 50 筆 iOS 評論
+        REVIEWS_PER_APP = 50  # 總共抓取50筆來排序
+        REVIEWS_FINAL_COUNT = 5  # 修改這個數字控制最終返回的評論數量
         
         while offset and len(all_reviews) < REVIEWS_PER_APP:
             print(f"正在抓取評論，offset: {offset}")
@@ -222,11 +223,14 @@ def fetch_ios_reviews(url: str) -> List[dict]:
             offset = next_offset
             time.sleep(0.5)
             
-        # 依日期排序（從新到舊）
-        all_reviews.sort(key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'), reverse=True)
+        # 按日期排序（從新到舊）- 使用更簡潔的方式
+        all_reviews.sort(key=lambda x: x['date'], reverse=True)
         
-        print(f"iOS 評論收集完成，共 {len(all_reviews)} 筆")
-        return all_reviews[:REVIEWS_PER_APP]
+        # 只返回前N筆最新評論
+        final_reviews = all_reviews[:REVIEWS_FINAL_COUNT]
+        
+        print(f"iOS 評論收集完成，共 {len(final_reviews)} 筆最新評論")
+        return final_reviews
             
     except Exception as e:
         print(f"抓取 iOS 評論時發生錯誤: {str(e)}")
@@ -247,7 +251,9 @@ def parse_android_url(url: str) -> str:
 
 def fetch_android_reviews(url: str) -> List[dict]:
     try:
-        REVIEWS_PER_APP = 5  # 每個應用程式抓取 50 筆 Android 評論
+        REVIEWS_PER_APP = 50  # 總共抓取50筆來排序
+        REVIEWS_FINAL_COUNT = 5  # 修改這個數字控制最終返回的評論數量
+        
         app_id = parse_android_url(url)  # 改用 app_id
         print(f"開始抓取 Android 評論，應用程式 ID: {app_id}")
         
@@ -261,7 +267,7 @@ def fetch_android_reviews(url: str) -> List[dict]:
                 lang='zh_TW',  # 設定語言為繁體中文
                 country='tw',  # 設定國家為台灣
                 sort=Sort.NEWEST,  # 排序方式為最新
-                count=REVIEWS_PER_APP,  # 抓取數量
+                count=REVIEWS_PER_APP // 2,  # 中文評論抓取數量為總數的一半
                 filter_score_with=None  # 不過濾評分
             )
             
@@ -294,7 +300,7 @@ def fetch_android_reviews(url: str) -> List[dict]:
                 lang='en',  # 設定語言為英文
                 country='tw',  # 設定國家為台灣
                 sort=Sort.NEWEST,  # 排序方式為最新
-                count=REVIEWS_PER_APP,  # 抓取數量
+                count=REVIEWS_PER_APP // 2,  # 英文評論抓取數量為總數的一半
                 filter_score_with=None  # 不過濾評分
             )
             
@@ -319,13 +325,13 @@ def fetch_android_reviews(url: str) -> List[dict]:
         except Exception as e:
             print(f"抓取英文評論時發生錯誤: {str(e)}")
         
-        # 依日期排序（從新到舊）
-        all_reviews.sort(key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'), reverse=True)
+        # 按日期排序（從新到舊）- 使用更簡潔的方式
+        all_reviews.sort(key=lambda x: x['date'], reverse=True)
         
-        # 只返回前 50 筆評論
-        final_reviews = all_reviews[:REVIEWS_PER_APP]
+        # 只返回前N筆最新評論
+        final_reviews = all_reviews[:REVIEWS_FINAL_COUNT]
         
-        print(f"Android 評論收集完成，共 {len(final_reviews)} 筆")
+        print(f"Android 評論收集完成，共 {len(final_reviews)} 筆最新評論")
         return final_reviews
         
     except Exception as e:
