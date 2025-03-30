@@ -188,7 +188,7 @@ def fetch_ios_reviews(url: str) -> List[dict]:
         all_reviews = []
         offset = '1'
         REVIEWS_PER_APP = 50  # 總共抓取50筆來排序
-        REVIEWS_FINAL_COUNT = 5  # 修改這個數字控制最終返回的評論數量
+        REVIEWS_FINAL_COUNT = 50  # 修改這個數字控制最終返回的評論數量
         
         while offset and len(all_reviews) < REVIEWS_PER_APP:
             print(f"正在抓取評論，offset: {offset}")
@@ -252,7 +252,7 @@ def parse_android_url(url: str) -> str:
 def fetch_android_reviews(url: str) -> List[dict]:
     try:
         REVIEWS_PER_APP = 50  # 總共抓取50筆來排序
-        REVIEWS_FINAL_COUNT = 5  # 修改這個數字控制最終返回的評論數量
+        REVIEWS_FINAL_COUNT = 50  # 修改這個數字控制最終返回的評論數量
         
         app_id = parse_android_url(url)  # 改用 app_id
         print(f"開始抓取 Android 評論，應用程式 ID: {app_id}")
