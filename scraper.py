@@ -187,10 +187,9 @@ def fetch_ios_reviews(url: str) -> List[dict]:
         print("成功取得 token")
         all_reviews = []
         offset = '1'
-        REVIEWS_PER_APP = 50  # 總共抓取50筆來排序
-        REVIEWS_FINAL_COUNT = 50  # 修改這個數字控制最終返回的評論數量
+        REVIEWS_COUNT = 50  # 控制抓取和返回的評論數量
         
-        while offset and len(all_reviews) < REVIEWS_PER_APP:
+        while offset and len(all_reviews) < REVIEWS_COUNT:
             print(f"正在抓取評論，offset: {offset}")
             reviews, next_offset, status_code = fetch_apple_reviews(
                 country_code, app_name, app_id, token, offset
@@ -211,13 +210,13 @@ def fetch_ios_reviews(url: str) -> List[dict]:
                 'app_id': app_id
             } for review in reviews]
             
-            remaining_slots = REVIEWS_PER_APP - len(all_reviews)
+            remaining_slots = REVIEWS_COUNT - len(all_reviews)
             processed_reviews = processed_reviews[:remaining_slots]
             
             print(f"已處理 {len(processed_reviews)} 筆評論")
             all_reviews.extend(processed_reviews)
             
-            if len(all_reviews) >= REVIEWS_PER_APP:
+            if len(all_reviews) >= REVIEWS_COUNT:
                 break
                 
             offset = next_offset
@@ -227,7 +226,7 @@ def fetch_ios_reviews(url: str) -> List[dict]:
         all_reviews.sort(key=lambda x: x['date'], reverse=True)
         
         # 只返回前N筆最新評論
-        final_reviews = all_reviews[:REVIEWS_FINAL_COUNT]
+        final_reviews = all_reviews[:REVIEWS_COUNT]
         
         print(f"iOS 評論收集完成，共 {len(final_reviews)} 筆最新評論")
         return final_reviews
@@ -251,29 +250,27 @@ def parse_android_url(url: str) -> str:
 
 def fetch_android_reviews(url: str) -> List[dict]:
     try:
-        REVIEWS_PER_APP = 50  # 總共抓取50筆來排序
-        REVIEWS_FINAL_COUNT = 50  # 修改這個數字控制最終返回的評論數量
+        REVIEWS_FINAL_COUNT = 50  # 直接抓取50筆最新評論
         
-        app_id = parse_android_url(url)  # 改用 app_id
+        app_id = parse_android_url(url)
         print(f"開始抓取 Android 評論，應用程式 ID: {app_id}")
         
         all_reviews = []
         
-        # 取得中文評論
-        print("正在抓取中文評論...")
+        # 直接抓取最新評論，不區分語言
+        print("正在抓取評論...")
         try:
-            result_zh = reviews(
-                app_id,  # 使用 app_id
-                lang='zh_TW',  # 設定語言為繁體中文
-                country='tw',  # 設定國家為台灣
-                sort=Sort.NEWEST,  # 排序方式為最新
-                count=REVIEWS_PER_APP // 2,  # 中文評論抓取數量為總數的一半
-                filter_score_with=None  # 不過濾評分
+            result = reviews(
+                app_id,
+                lang='zh_TW',  # 可以保留繁體中文為主要語言
+                country='tw',
+                sort=Sort.NEWEST,  # 按最新排序
+                count=REVIEWS_FINAL_COUNT,  # 直接抓取50筆
+                filter_score_with=None
             )
             
-            # 處理中文評論
-            if result_zh and isinstance(result_zh, tuple) and len(result_zh) > 0:
-                for review in result_zh[0]:  # 取得評論列表
+            if result and isinstance(result, tuple) and len(result) > 0:
+                for review in result[0]:
                     try:
                         review_data = {
                             'date': review['at'].strftime('%Y-%m-%d'),
@@ -282,58 +279,26 @@ def fetch_android_reviews(url: str) -> List[dict]:
                             'rating': review['score'],
                             'platform': 'Android',
                             'developerResponse': review.get('replyContent', ''),
-                            'language': 'zh',
-                            'app_id': app_id  # 改用 app_id
+                            'language': detect_language(review['content']),  # 自動檢測語言
+                            'app_id': app_id
                         }
                         all_reviews.append(review_data)
                     except Exception as e:
-                        print(f"處理中文評論時發生錯誤: {str(e)}")
+                        print(f"處理評論時發生錯誤: {str(e)}")
                         continue
-        except Exception as e:
-            print(f"抓取中文評論時發生錯誤: {str(e)}")
-        
-        # 取得英文評論
-        print("正在抓取英文評論...")
-        try:
-            result_en = reviews(
-                app_id,  # 使用 app_id
-                lang='en',  # 設定語言為英文
-                country='tw',  # 設定國家為台灣
-                sort=Sort.NEWEST,  # 排序方式為最新
-                count=REVIEWS_PER_APP // 2,  # 英文評論抓取數量為總數的一半
-                filter_score_with=None  # 不過濾評分
-            )
+                        
+            print(f"成功抓取 {len(all_reviews)} 筆評論")
             
-            # 處理英文評論
-            if result_en and isinstance(result_en, tuple) and len(result_en) > 0:
-                for review in result_en[0]:  # 取得評論列表
-                    try:
-                        review_data = {
-                            'date': review['at'].strftime('%Y-%m-%d'),
-                            'username': review['userName'],
-                            'review': review['content'],
-                            'rating': review['score'],
-                            'platform': 'Android',
-                            'developerResponse': review.get('replyContent', ''),
-                            'language': 'en',
-                            'app_id': app_id  # 改用 app_id
-                        }
-                        all_reviews.append(review_data)
-                    except Exception as e:
-                        print(f"處理英文評論時發生錯誤: {str(e)}")
-                        continue
+            # 按日期排序（從新到舊）
+            all_reviews.sort(key=lambda x: x['date'], reverse=True)
+            
+            return all_reviews[:REVIEWS_FINAL_COUNT]
+            
         except Exception as e:
-            print(f"抓取英文評論時發生錯誤: {str(e)}")
-        
-        # 按日期排序（從新到舊）- 使用更簡潔的方式
-        all_reviews.sort(key=lambda x: x['date'], reverse=True)
-        
-        # 只返回前N筆最新評論
-        final_reviews = all_reviews[:REVIEWS_FINAL_COUNT]
-        
-        print(f"Android 評論收集完成，共 {len(final_reviews)} 筆最新評論")
-        return final_reviews
-        
+            print(f"抓取評論時發生錯誤: {str(e)}")
+            print(f"錯誤詳情:\n{traceback.format_exc()}")
+            return []
+            
     except Exception as e:
         print(f"抓取 Android 評論時發生錯誤: {str(e)}")
         print(f"錯誤詳情:\n{traceback.format_exc()}")
