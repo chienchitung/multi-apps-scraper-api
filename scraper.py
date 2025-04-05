@@ -187,9 +187,10 @@ def fetch_ios_reviews(url: str) -> List[dict]:
         print("成功取得 token")
         all_reviews = []
         offset = '1'
-        REVIEWS_COUNT = 50  # 控制抓取和返回的評論數量
+        REVIEWS_FETCH_COUNT = 150  # 抓取 150 筆評論
+        REVIEWS_RETURN_COUNT = 50  # 但只返回 50 筆
         
-        while offset and len(all_reviews) < REVIEWS_COUNT:
+        while offset and len(all_reviews) < REVIEWS_FETCH_COUNT:
             print(f"正在抓取評論，offset: {offset}")
             reviews, next_offset, status_code = fetch_apple_reviews(
                 country_code, app_name, app_id, token, offset
@@ -210,25 +211,25 @@ def fetch_ios_reviews(url: str) -> List[dict]:
                 'app_id': app_id
             } for review in reviews]
             
-            remaining_slots = REVIEWS_COUNT - len(all_reviews)
+            remaining_slots = REVIEWS_FETCH_COUNT - len(all_reviews)
             processed_reviews = processed_reviews[:remaining_slots]
             
             print(f"已處理 {len(processed_reviews)} 筆評論")
             all_reviews.extend(processed_reviews)
             
-            if len(all_reviews) >= REVIEWS_COUNT:
+            if len(all_reviews) >= REVIEWS_FETCH_COUNT:
                 break
                 
             offset = next_offset
             time.sleep(0.5)
             
-        # 按日期排序（從新到舊）- 使用更簡潔的方式
+        # 按日期排序（從新到舊）
         all_reviews.sort(key=lambda x: x['date'], reverse=True)
         
-        # 只返回前N筆最新評論
-        final_reviews = all_reviews[:REVIEWS_COUNT]
+        # 只返回前 50 筆最新評論
+        final_reviews = all_reviews[:REVIEWS_RETURN_COUNT]
         
-        print(f"iOS 評論收集完成，共 {len(final_reviews)} 筆最新評論")
+        print(f"iOS 評論收集完成，共抓取 {len(all_reviews)} 筆，返回 {len(final_reviews)} 筆最新評論")
         return final_reviews
             
     except Exception as e:
@@ -250,49 +251,72 @@ def parse_android_url(url: str) -> str:
 
 def fetch_android_reviews(url: str) -> List[dict]:
     try:
-        REVIEWS_FINAL_COUNT = 50  # 直接抓取50筆最新評論
+        REVIEWS_FETCH_COUNT = 150  # 抓取 150 筆評論
+        REVIEWS_RETURN_COUNT = 50  # 但只返回 50 筆
+        reviews_per_language = REVIEWS_FETCH_COUNT // 2  # 中英文各取一半
         
         app_id = parse_android_url(url)
         print(f"開始抓取 Android 評論，應用程式 ID: {app_id}")
         
         all_reviews = []
         
-        # 直接抓取最新評論，不區分語言
-        print("正在抓取評論...")
+        # 取得中文評論
+        print("正在抓取中文評論...")
         try:
-            result = reviews(
+            reviews_zh, continuation_token_zh = reviews(
                 app_id,
-                lang='zh_TW',  # 可以保留繁體中文為主要語言
+                lang='zh_TW',
                 country='tw',
-                sort=Sort.NEWEST,  # 按最新排序
-                count=REVIEWS_FINAL_COUNT,  # 直接抓取50筆
+                sort=Sort.NEWEST,
+                count=reviews_per_language,
                 filter_score_with=None
             )
             
-            if result and isinstance(result, tuple) and len(result) > 0:
-                for review in result[0]:
-                    try:
-                        review_data = {
-                            'date': review['at'].strftime('%Y-%m-%d'),
-                            'username': review['userName'],
-                            'review': review['content'],
-                            'rating': review['score'],
-                            'platform': 'Android',
-                            'developerResponse': review.get('replyContent', ''),
-                            'language': detect_language(review['content']),  # 自動檢測語言
-                            'app_id': app_id
-                        }
-                        all_reviews.append(review_data)
-                    except Exception as e:
-                        print(f"處理評論時發生錯誤: {str(e)}")
-                        continue
-                        
-            print(f"成功抓取 {len(all_reviews)} 筆評論")
+            for review in reviews_zh:
+                review_data = {
+                    'date': review['at'].strftime('%Y-%m-%d'),
+                    'username': review['userName'],
+                    'review': review['content'],
+                    'rating': review['score'],
+                    'platform': 'Android',
+                    'developerResponse': review.get('replyContent', ''),
+                    'language': detect_language(review['content']),
+                    'app_id': app_id
+                }
+                all_reviews.append(review_data)
+            
+            # 取得英文評論
+            print("正在抓取英文評論...")
+            reviews_en, continuation_token_en = reviews(
+                app_id,
+                lang='en',
+                country='tw',
+                sort=Sort.NEWEST,
+                count=reviews_per_language,
+                filter_score_with=None
+            )
+            
+            for review in reviews_en:
+                review_data = {
+                    'date': review['at'].strftime('%Y-%m-%d'),
+                    'username': review['userName'],
+                    'review': review['content'],
+                    'rating': review['score'],
+                    'platform': 'Android',
+                    'developerResponse': review.get('replyContent', ''),
+                    'language': detect_language(review['content']),
+                    'app_id': app_id
+                }
+                all_reviews.append(review_data)
             
             # 按日期排序（從新到舊）
             all_reviews.sort(key=lambda x: x['date'], reverse=True)
             
-            return all_reviews[:REVIEWS_FINAL_COUNT]
+            # 只返回前 50 筆最新評論
+            final_reviews = all_reviews[:REVIEWS_RETURN_COUNT]
+            
+            print(f"Android 評論收集完成，共抓取 {len(all_reviews)} 筆，返回 {len(final_reviews)} 筆最新評論")
+            return final_reviews
             
         except Exception as e:
             print(f"抓取評論時發生錯誤: {str(e)}")
