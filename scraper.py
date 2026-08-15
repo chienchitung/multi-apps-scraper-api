@@ -6,17 +6,10 @@ import emoji
 from langdetect import detect, LangDetectException
 import requests
 import json
-import random
 import time
 from tqdm import tqdm
 import urllib.parse
 import traceback
-
-# 定義 User-Agents
-user_agents = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-]
 
 def detect_language(text):
     if not text or not isinstance(text, str):
@@ -60,50 +53,23 @@ def parse_apple_url(url: str) -> Tuple[str, str]:
         print(f"Error parsing Apple Store URL: {str(e)}")
         raise
 
-def fetch_apple_reviews_page(country: str, app_id: str, page: int) -> list:
-    """透過 iTunes RSS Feed 取得單頁 App Store 評論"""
+def fetch_apple_reviews_page(country: str, app_id: str, page_num: int) -> list:
+    """透過 iTunes RSS Feed 取得單頁 App Store 評論的原始 entry 列表"""
     url = (f"https://itunes.apple.com/{country}/rss/customerreviews/"
-           f"page={page}/id={app_id}/sortBy=mostRecent/json")
+           f"page={page_num}/id={app_id}/sortBy=mostRecent/json")
 
-    retry_count = 0
-    MAX_RETRIES = 3
-    BASE_DELAY_SECS = 5
+    try:
+        response = requests.get(url)
 
-    while retry_count < MAX_RETRIES:
-        try:
-            response = requests.get(
-                url,
-                headers={'User-Agent': random.choice(user_agents)},
-                timeout=30
-            )
+        if response.status_code == 200:
+            data = response.json()
+            if 'feed' in data and 'entry' in data['feed']:
+                return data['feed']['entry']
+        else:
+            print(f"無法從第 {page_num} 頁抓取資料：狀態碼 {response.status_code}")
 
-            response.encoding = 'utf-8'  # 強制設定編碼為 UTF-8
-
-            if response.status_code == 200:
-                data = response.json()
-                entries = data.get('feed', {}).get('entry', [])
-                # RSS Feed 內若無評分欄位代表非評論項目，需濾除
-                return [entry for entry in entries if 'im:rating' in entry]
-
-            elif response.status_code == 429:
-                retry_count += 1
-                backoff_time = BASE_DELAY_SECS * retry_count
-                print(f"達到請求限制! 重試 ({retry_count}/{MAX_RETRIES}) 等待 {backoff_time} 秒...")
-                time.sleep(backoff_time)
-                continue
-
-            else:
-                print(f"無法從第 {page} 頁抓取資料：狀態碼 {response.status_code}")
-                print(f"回應內容: {response.text[:200]}")  # 只印出前 200 個字元
-                return []
-
-        except requests.exceptions.RequestException as e:
-            retry_count += 1
-            print(f"請求異常: {str(e)}, 重試 {retry_count}/{MAX_RETRIES}")
-            if retry_count == MAX_RETRIES:
-                return []
-            time.sleep(BASE_DELAY_SECS)
-            continue
+    except Exception as e:
+        print(f"抓取第 {page_num} 頁時發生錯誤：{e}")
 
     return []
 
@@ -113,53 +79,34 @@ def fetch_ios_reviews(url: str) -> List[dict]:
         country_code, app_id = parse_apple_url(url)
 
         all_reviews = []
-        REVIEWS_FETCH_COUNT = 150  # 抓取 150 筆評論
-        REVIEWS_RETURN_COUNT = 50  # 但只返回 50 筆
-        MAX_PAGES = 10  # App Store RSS Feed 最多提供約 10 頁評論
+        REVIEWS_RETURN_COUNT = 50  # 只返回 50 筆最新評論
+        MAX_PAGES = 10  # RSS Feed 頁碼範圍 1 ~ 9
 
-        for page in range(1, MAX_PAGES + 1):
-            if len(all_reviews) >= REVIEWS_FETCH_COUNT:
-                break
-
-            print(f"正在抓取第 {page} 頁評論")
-            entries = fetch_apple_reviews_page(country_code, app_id, page)
-
-            if not entries:
-                print(f"第 {page} 頁已無評論，停止抓取")
-                break
+        for page_num in range(1, MAX_PAGES):
+            print(f"正在抓取第 {page_num} 頁評論")
+            entries = fetch_apple_reviews_page(country_code, app_id, page_num)
 
             for entry in entries:
-                updated_label = entry.get('updated', {}).get('label')
-                if not updated_label:
-                    continue
                 try:
                     review_date = datetime.strptime(
-                        updated_label, '%Y-%m-%dT%H:%M:%S%z'
+                        entry['updated']['label'], '%Y-%m-%dT%H:%M:%S%z'
                     ).strftime('%Y-%m-%d')
-                except ValueError:
+                    review_text = entry['content']['label']
+                    all_reviews.append({
+                        'date': review_date,
+                        'username': entry['author']['name']['label'],
+                        'review': review_text,
+                        'rating': int(entry['im:rating']['label']),
+                        'platform': 'iOS',
+                        'developerResponse': '',
+                        'language': detect_language(review_text),
+                        'app_id': app_id
+                    })
+                except (KeyError, ValueError) as e:
+                    print(f"略過格式不正確的評論：{e}")
                     continue
 
-                review_text = entry.get('content', {}).get('label', '')
-                all_reviews.append({
-                    'date': review_date,
-                    'username': entry.get('author', {}).get('name', {}).get('label', ''),
-                    'review': review_text,
-                    'rating': int(entry.get('im:rating', {}).get('label', 0) or 0),
-                    'platform': 'iOS',
-                    'developerResponse': '',
-                    'language': detect_language(review_text),
-                    'app_id': app_id
-                })
-
-                if len(all_reviews) >= REVIEWS_FETCH_COUNT:
-                    break
-
             print(f"已處理累計 {len(all_reviews)} 筆評論")
-
-            if len(all_reviews) >= REVIEWS_FETCH_COUNT:
-                break
-
-            time.sleep(0.5)
 
         # 按日期排序（從新到舊）
         all_reviews.sort(key=lambda x: x['date'], reverse=True)
