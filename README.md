@@ -170,6 +170,7 @@ print(json.dumps(response.json(), indent=2, ensure_ascii=False))
 3. 選擇此專案進行部署
 4. 環境變數設定：
    - `PORT`: 設定服務埠口（預設 8000）
+   - `SERPAPI_KEY`：SerpApi 的 API Key（選用）。iOS 評論預設透過 iTunes RSS Feed 抓取，若該 Feed 對特定 App/地區抓不到評論，會自動改用 SerpApi 的 `apple_reviews` engine 作為備援。未設定時僅略過備援，不影響 Android 評論抓取。
 
 ### 其他平台部署
 
