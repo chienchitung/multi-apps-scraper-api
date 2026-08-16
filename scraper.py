@@ -105,10 +105,13 @@ def fetch_ios_reviews(url: str) -> List[dict]:
         country_code, app_id = parse_apple_url(url)
 
         all_reviews = []
-        REVIEWS_RETURN_COUNT = 50  # 只返回 50 筆最新評論
+        REVIEWS_PER_PLATFORM = 150  # 每個平台抓取 150 則評論
         MAX_PAGES = 10
 
         for page_num in range(1, MAX_PAGES + 1):
+            if len(all_reviews) >= REVIEWS_PER_PLATFORM:
+                break
+
             print(f"正在抓取第 {page_num} 頁評論")
             entries, total_pages = fetch_apple_reviews_page(country_code, app_id, page_num)
 
@@ -146,8 +149,8 @@ def fetch_ios_reviews(url: str) -> List[dict]:
         # 按日期排序（從新到舊）
         all_reviews.sort(key=lambda x: x['date'], reverse=True)
 
-        # 只返回前 50 筆最新評論
-        final_reviews = all_reviews[:REVIEWS_RETURN_COUNT]
+        # 只返回前 150 筆最新評論
+        final_reviews = all_reviews[:REVIEWS_PER_PLATFORM]
 
         print(f"iOS 評論收集完成，共抓取 {len(all_reviews)} 筆，返回 {len(final_reviews)} 筆最新評論")
         return final_reviews
@@ -171,10 +174,9 @@ def parse_android_url(url: str) -> str:
 
 def fetch_android_reviews(url: str) -> List[dict]:
     try:
-        REVIEWS_FETCH_COUNT = 150  # 抓取 150 筆評論
-        REVIEWS_RETURN_COUNT = 50  # 但只返回 50 筆
-        reviews_per_language = REVIEWS_FETCH_COUNT // 2  # 中英文各取一半
-        
+        REVIEWS_PER_PLATFORM = 150  # 每個平台抓取 150 則評論
+        reviews_per_language = REVIEWS_PER_PLATFORM
+
         app_id = parse_android_url(url)
         print(f"開始抓取 Android 評論，應用程式 ID: {app_id}")
         
@@ -233,10 +235,10 @@ def fetch_android_reviews(url: str) -> List[dict]:
             
             # 按日期排序（從新到舊）
             all_reviews.sort(key=lambda x: x['date'], reverse=True)
-            
-            # 只返回前 50 筆最新評論
-            final_reviews = all_reviews[:REVIEWS_RETURN_COUNT]
-            
+
+            # 只返回前 150 筆最新評論
+            final_reviews = all_reviews[:REVIEWS_PER_PLATFORM]
+
             print(f"Android 評論收集完成，共抓取 {len(all_reviews)} 筆，返回 {len(final_reviews)} 筆最新評論")
             return final_reviews
             
