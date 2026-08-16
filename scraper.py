@@ -100,6 +100,7 @@ def fetch_ios_reviews(url: str) -> List[dict]:
                         'platform': 'iOS',
                         'developerResponse': '',
                         'language': detect_language(review_text),
+                        'appVersion': entry.get('im:version', {}).get('label', ''),
                         'app_id': app_id
                     })
                 except (KeyError, ValueError) as e:
@@ -166,6 +167,7 @@ def fetch_android_reviews(url: str) -> List[dict]:
                     'platform': 'Android',
                     'developerResponse': review.get('replyContent', ''),
                     'language': detect_language(review['content']),
+                    'appVersion': review.get('appVersion', ''),
                     'app_id': app_id
                 }
                 all_reviews.append(review_data)
@@ -190,6 +192,7 @@ def fetch_android_reviews(url: str) -> List[dict]:
                     'platform': 'Android',
                     'developerResponse': review.get('replyContent', ''),
                     'language': detect_language(review['content']),
+                    'appVersion': review.get('appVersion', ''),
                     'app_id': app_id
                 }
                 all_reviews.append(review_data)
