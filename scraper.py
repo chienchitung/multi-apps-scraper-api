@@ -14,6 +14,7 @@ import traceback
 
 SERPAPI_KEY = os.getenv('SERPAPI_KEY')
 SERPAPI_URL = 'https://serpapi.com/search.json'
+MAX_PAGES = 10  # 最大抓取頁數，也作為 total_page_count 缺失時的預設值
 
 def detect_language(text):
     if not text or not isinstance(text, str):
@@ -79,7 +80,7 @@ def fetch_apple_reviews_page(country: str, app_id: str, page_num: int) -> tuple:
             return [], 0
 
         data = response.json()
-        total_pages = data.get('search_information', {}).get('total_page_count', 1)
+        total_pages = data.get('search_information', {}).get('total_page_count', MAX_PAGES)
         return data.get('reviews', []), total_pages
 
     except Exception as e:
@@ -106,7 +107,6 @@ def fetch_ios_reviews(url: str) -> List[dict]:
 
         all_reviews = []
         REVIEWS_PER_PLATFORM = 150  # 每個平台抓取 150 則評論
-        MAX_PAGES = 10
 
         for page_num in range(1, MAX_PAGES + 1):
             if len(all_reviews) >= REVIEWS_PER_PLATFORM:
